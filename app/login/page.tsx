@@ -27,6 +27,34 @@ export default function LoginPage() {
     setAuthSuccess("");
   }
 
+  // GOOGLE OAUTH LOGIN
+  async function handleGoogleLogin() {
+    if (isSubmitting) return;
+
+    setAuthError("");
+    setAuthSuccess("");
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err) {
+      setAuthError(
+        err instanceof Error
+          ? err.message
+          : "Google login failed. Please try again."
+      );
+      setIsSubmitting(false);
+    }
+  }
+
+  // EMAIL / PASSWORD LOGIN AND SIGNUP
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -192,6 +220,48 @@ export default function LoginPage() {
                 : "Create an account to save your diagnoses and access your conversation history."}
             </p>
 
+          </div>
+
+          {/* Google OAuth */}
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={isSubmitting}
+            className="mb-6 flex w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-[#100e10] py-3.5 text-sm font-medium text-white transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 48 48"
+              aria-hidden="true"
+            >
+              <path
+                fill="#EA4335"
+                d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.05 13.22l7.98 6.19C11.93 13.72 17.47 9.5 24 9.5z"
+              />
+              <path
+                fill="#4285F4"
+                d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.73 7.18l7.62 5.91c4.45-4.11 7.15-10.15 7.15-17.56z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M10.03 28.59A14.4 14.4 0 0 1 9.25 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.88.93 7.55 2.58 10.78l7.45-6.19z"
+              />
+              <path
+                fill="#34A853"
+                d="M24 48c6.48 0 11.93-2.13 15.9-5.89l-7.62-5.91c-2.12 1.42-4.84 2.27-8.28 2.27-6.53 0-12.07-4.22-14.03-9.91l-7.45 6.19C6.51 42.62 14.62 48 24 48z"
+              />
+            </svg>
+
+            {isSubmitting ? "Please wait..." : "Continue with Google"}
+          </button>
+
+          {/* Divider */}
+          <div className="mb-6 flex items-center gap-4">
+            <div className="h-px flex-1 bg-white/10" />
+            <span className="text-xs text-white/35">
+              OR CONTINUE WITH EMAIL
+            </span>
+            <div className="h-px flex-1 bg-white/10" />
           </div>
 
           {/* Authentication form */}
