@@ -208,7 +208,7 @@ export default function LoginPage() {
               {isLogin ? "Welcome back" : "Create your account"}
             </p>
 
-            <h1 className="text-3xl font-semibold tracking-tight">
+            <h1 className="w-full max-w-full text-3xl sm:text-4xl font-semibold leading-tight tracking-tight break-words">
               {isLogin
                 ? "Sign in to EmbeddedSense"
                 : "Get started"}

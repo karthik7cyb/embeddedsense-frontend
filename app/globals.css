@@ -128,17 +128,20 @@ nav a:hover {
     color:var(--rose);
     font-size:18px
 }
-h1 {
-    font-size:clamp(46px,5.1vw,76px);
-    line-height:1.03;
-    letter-spacing:-3.4px;
-    margin:0 0 20px;
-    font-weight:780
+/* Homepage hero heading only */
+.hero-copy h1 {
+    font-size: clamp(46px,5.1vw,76px);
+    line-height: 1.03;
+    letter-spacing: -3.4px;
+    margin: 0 0 20px;
+    font-weight: 780;
 }
-h1 em {
-    font-style:normal;
-    color:var(--rose)
+
+.hero-copy h1 em {
+    font-style: normal;
+    color: var(--rose);
 }
+
 .lead {
     font-size:clamp(16px,1.45vw,20px);
     line-height:1.6;
@@ -447,10 +450,10 @@ footer {
     .hero {
         min-height:680px
     }
-    h1 {
-        font-size:47px;
-        letter-spacing:-2.2px
-    }
+    .hero-copy h1 {
+    font-size: 47px;
+    letter-spacing: -2.2px;
+    }   
     .lead {
         font-size:16px
     }
