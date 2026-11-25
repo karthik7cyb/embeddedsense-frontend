@@ -3,6 +3,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "../../lib/supabase/client";
 
 type Message = {
@@ -47,14 +48,12 @@ export default function DiagnoseWorkspace({
     user,
 }: DiagnoseWorkspaceProps) {
     const router = useRouter();
-    const supabase = createClient();
+    const [supabase] = useState(() => createClient());
 
     const [prompt, setPrompt] = useState("");
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const [streamStatus, setStreamStatus] = useState("");
-    const [selectedRoute, setSelectedRoute] = useState<"rag" | "tool" | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const [conversationId, setConversationId] = useState<string | null>(null);
@@ -143,8 +142,6 @@ export default function DiagnoseWorkspace({
         setPrompt("");
         setError("");
         setLoading(true);
-        setStreamStatus("");
-        setSelectedRoute(null);
 
         let activeConversationId = conversationId;
 
@@ -223,101 +220,61 @@ export default function DiagnoseWorkspace({
                 throw new Error("No response stream received.");
             }
 
-            // 5. Read and process SSE events
+            // 5. Stream AI response
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
 
             let fullResponse = "";
-            let buffer = "";
-            let receivedDone = false;
-
-            function processSSEFrame(frame: string) {
-                let event = "message";
-                const dataLines: string[] = [];
-
-                for (const line of frame.split("\n")) {
-                    if (line.startsWith(":")) continue;
-
-                    const separator = line.indexOf(":");
-                    if (separator === -1) continue;
-
-                    const field = line.slice(0, separator);
-                    const value = line.slice(separator + 1).replace(/^ /, "");
-
-                    if (field === "event") {
-                        event = value;
-                    } else if (field === "data") {
-                        dataLines.push(value);
-                    }
-                }
-
-                if (dataLines.length === 0) return;
-
-                const data = JSON.parse(dataLines.join("\n"));
-
-                switch (event) {
-                    case "status":
-                        setStreamStatus(data.message);
-                        break;
-
-                    case "route":
-                        setSelectedRoute(data.route);
-                        break;
-
-                    case "token":
-                        fullResponse += data.content;
-
-                        setMessages((previous) => {
-                            const updated = [...previous];
-                            const lastIndex = updated.length - 1;
-
-                            updated[lastIndex] = {
-                                role: "assistant",
-                                content: fullResponse,
-                            };
-
-                            return updated;
-                        });
-                        break;
-
-                    case "done":
-                        receivedDone = true;
-                        setStreamStatus("");
-                        break;
-
-                    case "error":
-                        throw new Error(data.message || "An error occurred.");
-                }
-            }
 
             while (true) {
                 const { value, done } = await reader.read();
 
                 if (done) break;
 
-                buffer += decoder.decode(value, { stream: true });
+                const chunk = decoder.decode(value, {
+                    stream: true,
+                });
 
-                let boundary: number;
+                if (!chunk) continue;
 
-                while ((boundary = buffer.indexOf("\n\n")) !== -1) {
-                    const frame = buffer.slice(0, boundary);
-                    buffer = buffer.slice(boundary + 2);
+                for (const character of chunk) {
+                    fullResponse += character;
 
-                    if (frame.trim()) {
-                        processSSEFrame(frame);
-                    }
+                    setMessages((previous) => {
+                        const updated = [...previous];
+                        const lastIndex = updated.length - 1;
+
+                        updated[lastIndex] = {
+                            role: "assistant",
+                            content: fullResponse,
+                        };
+
+                        return updated;
+                    });
+
+                    await new Promise((resolve) =>
+                        setTimeout(resolve, 10)
+                    );
                 }
             }
 
-            // Process any remaining buffered data
-            buffer += decoder.decode();
+            // 6. Flush remaining decoder buffer
+            const remaining = decoder.decode();
 
-            if (buffer.trim()) {
-                processSSEFrame(buffer);
-            }
+            if (remaining) {
+                fullResponse += remaining;
 
-            if (!receivedDone) {
-                throw new Error("The response stream ended unexpectedly.");
+                setMessages((previous) => {
+                    const updated = [...previous];
+                    const lastIndex = updated.length - 1;
+
+                    updated[lastIndex] = {
+                        role: "assistant",
+                        content: fullResponse,
+                    };
+
+                    return updated;
+                });
             }
 
             if (!fullResponse.trim()) {
@@ -464,6 +421,23 @@ export default function DiagnoseWorkspace({
                         <span className="text-lg">＋</span>
                         New Diagnosis
                     </button>
+                </div>
+
+                {/* Plugins navigation */}
+                <div className="px-5 pb-2">
+                    <Link
+                        href="/plugins"
+                        onClick={() => setSidebarOpen(false)}
+                        className="group flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-white/65 transition hover:border-[#efa4a5]/30 hover:bg-[#efa4a5]/[0.07] hover:text-[#efa4a5]"
+                    >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-base transition group-hover:bg-[#efa4a5]/10">
+                            ⊞
+                        </span>
+                        <span>Plugins</span>
+                        <span className="ml-auto text-white/25 transition group-hover:translate-x-0.5 group-hover:text-[#efa4a5]">
+                            →
+                        </span>
+                    </Link>
                 </div>
 
                 {/* Conversation history */}
@@ -739,22 +713,6 @@ export default function DiagnoseWorkspace({
                                                             ? "Investigating your hardware issue..."
                                                             : "")}
                                                 </div>
-
-                                                {message.role === "assistant" &&
-                                                    loading &&
-                                                    index === messages.length - 1 && (
-                                                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/40">
-                                                            {selectedRoute && (
-                                                                <span className="rounded-full border border-[#efa4a5]/20 px-3 py-1 text-[#efa4a5]">
-                                                                    {selectedRoute.toUpperCase()} route
-                                                                </span>
-                                                            )}
-
-                                                            {streamStatus && (
-                                                                <span>{streamStatus}</span>
-                                                            )}
-                                                        </div>
-                                                    )}
 
                                                 {message.role === "assistant" &&
                                                     loading &&
